@@ -1,6 +1,6 @@
-# Text Independant Speaker Verification
+# Text Independant Speaker Verification Using GE2E Loss
 
-Tensorflow implementation of Text Independant Speaker Verification based on [Generalized End-to-End Loss for Speaker Verification](https://arxiv.org/abs/1710.10467) and [Transfer Learning from Speaker Verification to Multispeaker Text-To-Speech Synthesis](https://arxiv.org/abs/1806.04558)
+Tensorflow implementation of Text Independent Speaker Verification based on [Generalized End-to-End Loss for Speaker Verification](https://arxiv.org/abs/1710.10467) and [Transfer Learning from Speaker Verification to Multispeaker Text-To-Speech Synthesis](https://arxiv.org/abs/1806.04558)
 
 
 ## Data
