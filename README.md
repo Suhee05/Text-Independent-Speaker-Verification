@@ -45,17 +45,15 @@ wav_root - speaker_id - video_clip_id - 00001.wav
 
 
 ```python
-python preprocess.py --in_dir /home/ninas96211/data/wav_root 
-					 --data_type vox1
+python preprocess.py --in_dir /home/ninas96211/data/wav_root --data_type vox1
 ```
 
 ### 2. Train 
 
 + Run train.py
 
-```
-python train.py --in_dir /home/ninas96211/data/wavs_pickle 
-				--ckpt_dir ./ckpt
+```python
+python train.py --in_dir /home/ninas96211/data/wavs_pickle --ckpt_dir ./ckpt
 ```
 
 ### 3. Infer
@@ -63,14 +61,12 @@ python train.py --in_dir /home/ninas96211/data/wavs_pickle
 + Using data\_gen.sh, create a directory for test where wavs have names like [speaker\_id]\_[video\_clip\_id]\_[wav\_number].wav
 
 
-```
+```bash
 bash data_gen.sh /home/ninas96211/data/test_wav/id10275/CVUXDNZzcmA/00002.wav ~/data/test_wav_set
 ```
 
 + Run inference.py
 
-```
-python inference.py --in_wav1 /home/ninas96211/data/test_wav_set/id10309_pwfqGqgezH4_00004.wav 
-					--in_wav2 /home/ninas96211/data/test_wav_set/id10296_f_k09R8r_cA_00004.wav 
-					--ckpt_file ./ckpt/model.ckpt-35000
+```python
+python inference.py --in_wav1 /home/ninas96211/data/test_wav_set/id10309_pwfqGqgezH4_00004.wav --in_wav2 /home/ninas96211/data/test_wav_set/id10296_f_k09R8r_cA_00004.wav --ckpt_file ./ckpt/model.ckpt-35000
 ```
