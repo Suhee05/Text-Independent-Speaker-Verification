@@ -29,14 +29,83 @@ vox1_dev_wav - id #### - 0DOmwbPlPvY - 00001.wav
 
 """
 
+class Preprocess():
+    def __init__(self, hparams):
+        # Set hparams
+        self.hparams = hparams
+    def preprocess_data(self):
+        if self.hparams.data_type == "libri":
+            path_list = glob.iglob(self.hparams.in_dir.rstrip("/")+"/*/*.wav")
+        elif self.hparams.data_type == "vox1":
+            path_list = glob.iglob(self.hparams.in_dir.rstrip("/")+"/*/*/*.wav")
+        elif self.hparams.data_type == "vox2":
+            path_list = glob.iglob(self.hparams.in_dir.rstrip("/")+"/*/*/*.m4a")
+        else:
+            raise ValueError("data type not supported")
+        for path in path_list:
+            print(path)
+            wav_arr, sample_rate = self.vad_process(path)
+            self.create_pickle(path, wav_arr, sample_rate)
+
+    def vad_process(self, path):
+        # VAD Process
+        if self.hparams.data_type == "vox1":
+            audio, sample_rate = vad_ex.read_wave(path)
+        elif self.hparams.data_type == "vox2":
+            audio, sample_rate = vad_ex.read_m4a(path)
+        elif self.hparams.data_type == "libri":
+            audio, sample_rate = vad_ex.read_libri(path)
+        vad = webrtcvad.Vad(1)
+        frames = vad_ex.frame_generator(30, audio, sample_rate)
+        frames = list(frames)
+        segments = vad_ex.vad_collector(sample_rate, 30, 300, vad, frames)
+        total_wav = b""
+        for i, segment in enumerate(segments):
+            total_wav += segment
+        # Without writing, unpack total_wav into numpy [N,1] array
+        # 16bit PCM 기준 dtype=np.int16
+        wav_arr = np.frombuffer(total_wav, dtype=np.int16)
+        print("read audio data from byte string. np array of shape:"+str(wav_arr.shape))
+        return wav_arr, sample_rate
+
+    def create_pickle(self, path, wav_arr, sample_rate):
+        if round((wav_arr.shape[0] / sample_rate), 1) > self.hparams.segment_length:
+            save_dict = {};
+            logmel_feats = logfbank(wav_arr, samplerate=sample_rate, nfilt=self.hparams.spectrogram_scale)
+            print("created logmel feats from audio data. np array of shape:"+str(logmel_feats.shape))
+            save_dict["LogMel_Features"] = logmel_feats;
+
+            if self.hparams.data_type == ("vox1" or "vox2"):
+            	data_id = "_".join(path.split("/")[-3:])
+            	save_dict["SpkId"] = path.split("/")[-3]
+            	save_dict["ClipId"] = path.split("/")[-2]
+            	save_dict["WavId"] = path.split("/")[-1]
+            	if self.hparams.data_type == "vox1":
+            	    pickle_f_name = data_id.replace("wav", "pickle")
+            	elif self.hparams.data_type == "vox2":
+            	    pickle_f_name = data_id.replace("m4a", "pickle")
+
+            elif self.hparams.data_type == "libri":
+                data_id = "_".join(path.split("/")[-2:])
+                save_dict["SpkId"] = path.split("/")[-2]
+                save_dict["WavId"] = path.split("/")[-1]
+                pickle_f_name = data_id.replace("wav", "pickle")
+                print(pickle_f_name)
+
+            with open(self.hparams.pk_dir + "/" + pickle_f_name, "wb") as f:
+                pickle.dump(save_dict, f, protocol=3);
+        else:
+            print("wav length smaller than 1.6s: " + path)
+
 def main():
 
-	# Hyperparameters
+    # Hyperparameters
 
     parser = argparse.ArgumentParser()
 
     # in_dir = ~/wav
     parser.add_argument("--in_dir", type=str, required=True, help="input audio data dir")
+    parser.add_argument("--pk_dir", type=str, required=True, help="output pickle dir")
     parser.add_argument("--data_type", required=True, choices=["libri", "vox1", "vox2"])
 
     # Data Process
@@ -45,57 +114,21 @@ def main():
                                            help="scale of the input spectrogram")
     args = parser.parse_args()
 
-    pk_dir = os.path.dirname(args.in_dir.rstrip("/")) + "/wavs_pickle"
+    #pk_dir = os.path.dirname(args.in_dir.rstrip("/")) + "/wavs_pickle"
 
     # try to make pickle directory.
     try:
-    	os.mkdir(pk_dir)
+    	os.mkdir(args.pk_dir)
     	print("pickle directory created.")
     except FileExistsError:
     	print("wavs_pickle already exists.")
     except:
     	print("Unexpected Error:", sys.exc_info()[0])
 
-    if args.data_type == "vox1":
-    	# full path of all audio files in in_dir
-    	wavs = glob.iglob(args.in_dir.rstrip("/")+"/*/*/*.wav")
 
-    	for wav_path in wavs:
-
-		    print(wav_path)
-		    wav_id = "_".join(wav_path.split("/")[-3:])
-
-		    # VAD Process
-		    audio, sample_rate = vad_ex.read_wave(wav_path)
-		    vad = webrtcvad.Vad(1)
-		    frames = vad_ex.frame_generator(30, audio, sample_rate)
-		    frames = list(frames)
-		    segments = vad_ex.vad_collector(sample_rate, 30, 300, vad, frames)
-		    total_wav = b""
-		    for i, segment in enumerate(segments):
-		        total_wav += segment
-		        print(wav_id+ " : " + str(i)+"th segment appended")
-
-		    # Without writing, unpack total_wav into numpy [N,1] array
-		    # 16bit PCM 기준 dtype=np.int16
-		    wav_arr = np.frombuffer(total_wav, dtype=np.int16)
-		    print("read audio data from byte string. np array of shape:"+str(wav_arr.shape))
-		    
-		    # if wav is smaller than 1.6s, throw away
-		    if round((wav_arr.shape[0] / sample_rate), 1) > args.segment_length:
-		        logmel_feats = logfbank(wav_arr, samplerate=sample_rate, nfilt=args.spectrogram_scale)
-		        print("created logmel feats from audio data. np array of shape:"+str(logmel_feats.shape))
-		        save_dict = {};
-		        save_dict["SpkId"] = wav_path.split("/")[-3]
-		        save_dict["ClipId"] = wav_path.split("/")[-2]
-		        save_dict["WavId"] = wav_path.split("/")[-1]
-		        save_dict["LogMel_Features"] = logmel_feats;
-		        pickle_f_name = wav_id.replace("wav", "pickle")
-		        with open(pk_dir + "/" + pickle_f_name, "wb") as f:
-		            pickle.dump(save_dict, f, protocol=3);
-		    else:
-		        print("wav length smaller than 1.6s: " + wav_id)
-
+    preprocess = Preprocess(args)
+    preprocess.preprocess_data()
+    
 
 
 

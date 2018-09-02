@@ -2,10 +2,10 @@ import collections
 import contextlib
 import sys
 import wave
-
+from pydub import AudioSegment
 import webrtcvad
 
-# Modified main() of https://github.com/wiseman/py-webrtcvad/blob/master/example.py
+# Modified https://github.com/wiseman/py-webrtcvad/blob/master/example.py
 
 def read_wave(path):
     """Reads a .wav file.
@@ -20,6 +20,19 @@ def read_wave(path):
         assert sample_rate in (8000, 16000, 32000)
         pcm_data = wf.readframes(wf.getnframes())
         return pcm_data, sample_rate
+
+def read_libri(path):
+    mf = AudioSegment.from_file(path, "wav")
+    sample_rate = mf.frame_rate
+    pcm_data = mf.raw_data
+    return pcm_data, sample_rate
+
+
+def read_m4a(path):
+    mf = AudioSegment.from_file(path, "m4a")
+    sample_rate = mf.frame_rate
+    pcm_data = mf.raw_data
+    return pcm_data, sample_rate
 
 
 def write_wave(path, audio, sample_rate):
@@ -135,6 +148,8 @@ def main(args):
             'Usage: example.py <aggressiveness> <path to wav file>\n')
         sys.exit(1)
     audio, sample_rate = read_wave(args[1])
+    #audio, sample_rate = read_m4a(args[1])
+    #audio, sample_rate = read_libri(args[1])
     vad = webrtcvad.Vad(int(args[0]))
     frames = frame_generator(30, audio, sample_rate)
     frames = list(frames)
