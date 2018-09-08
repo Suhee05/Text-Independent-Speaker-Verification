@@ -88,3 +88,7 @@ bash data_gen.sh /home/ninas96211/data/test_wav/id10275/CVUXDNZzcmA/00002.wav ~/
 ```python
 python inference.py --in_wav1 /home/ninas96211/data/test_wav_set/id10309_pwfqGqgezH4_00004.wav --in_wav2 /home/ninas96211/data/test_wav_set/id10296_f_k09R8r_cA_00004.wav --ckpt_file ./ckpt/model.ckpt-35000
 ```
+
+## Current Issues
+
+- [@jaekukang](https://github.com/jaekookang) cloned this repository and he trained this model successfully. In inference.py, however, he found a bug. I fixed the bug.

@@ -5,6 +5,7 @@ import utils
 from model import GE2E
 import re
 import os
+import queue
 
 def main():
 
@@ -18,7 +19,7 @@ def main():
     parser.add_argument("--mode", default="train", choices=["train", "test", "infer"], help="setting mode for execution")
 
     # Saving Checkpoints, Data... etc
-    parser.add_argument("--max_step", type=int, default=50000000, help="maximum steps in training")
+    parser.add_argument("--max_step", type=int, default=500000, help="maximum steps in training")
     parser.add_argument("--checkpoint_freq", type=int, default=100, help="how often save checkpoint")
 
     # Data
@@ -41,8 +42,6 @@ def main():
                                            help="N speakers of batch size N*M")
     parser.add_argument("--num_utt_per_batch", type=int, default= 10,
                                            help="M utterances of batch size N*M")
-    parser.add_argument("--drop_out", type=int, help="how often save checkpoint")
-    #parser.add_argumentparser.add_argument("--decay")
 
     # LSTM
     parser.add_argument("--lstm_proj_clip", type=float, default=0.5, help="Gradient scale for projection node in LSTM")
@@ -52,13 +51,21 @@ def main():
 
     # Scaled Cosine similarity
     parser.add_argument("--scale_clip", type=float, default=0.01, help="Gradient scale for scale values in scaled cosine similarity")
+    
     # Collect hparams
     args = parser.parse_args()
 
+    # Set up Queue
+    global_queue = queue.Queue()
     # Set up Feeder
-    feeder = Feeder(args)
-    feeder.set_up_feeder()
+    libri_feeder = Feeder(args, "libri")
+    libri_feeder.set_up_feeder(global_queue)
 
+    vox1_feeder = Feeder(args, "vox1")
+    vox1_feeder.set_up_feeder(global_queue)
+
+    vox2_feeder = Feeder(args,"vox2")
+    vox2_feeder.set_up_feeder(global_queue)
 
     # Set up Model
 
@@ -84,12 +91,11 @@ def main():
             sess.run(init_op)
             start_step = 1
 
-        for num_step in range(start_step, args.max_step+1):
+        for num_step in range(start_step, args.max_step + 1):
 
             print("current step: " + str(num_step) + "th step")
-
         
-            batch = feeder.queue.get()
+            batch = global_queue.get()
             
             summary, training_loss, _ = sess.run([model.sim_mat_summary, model.total_loss, model.optimize], feed_dict={model.input_batch: batch[0], model.target_batch : batch[1]})
             train_writer.add_summary(summary, num_step)

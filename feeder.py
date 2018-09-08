@@ -30,24 +30,30 @@ vox1_dev_wav - id #### - 0DOmwbPlPvY - 00001.wav
 """
 
 class Feeder():
-    def __init__(self, hparams):
+    def __init__(self, hparams, data_type=None):
         # Set hparams
         self.hparams = hparams
+        if self.hparams.mode == "train":
+            assert data_type != None
+            self.data_type = data_type
 
         # 나중에 좀 더 다양한 데이터를 input으로 받아서 process할 수 있도록 하는 부분 추가
-    def set_up_feeder(self):
+    def set_up_feeder(self, queue=None):
+
         if self.hparams.mode == "train":
             #pickles = ["id11251_gFfcgOVmiO0_00004.pickle", "id11251_gFfcgOVmiO0_00005.pickle"...]
-            self.pickles = os.listdir(self.hparams.in_dir)
+            self.pickles = os.listdir(self.hparams.in_dir + "/" + self.data_type)
             self.spk_names = list(set([pickle.split("_")[0] for pickle in self.pickles]))
             # Create Queue
-            self.queue = queue.Queue()
+            #self.queue = queue.Queue()
+            self.queue = queue
             # Start new thread
             start_new_thread(self.generate_data, ())
 
         elif self.hparams.mode == "infer":
+            #save_dict for saving mel spectrograms of two waves
+            self.save_dict = {};
 
-            pass
         elif self.hparams.mode == "test":
             pass
         else:
@@ -98,7 +104,7 @@ class Feeder():
                 print("speaker id: " + spk_id + " has less than " + str(self.hparams.num_utt_per_batch) + " utt files")
                 continue
             # speaker_pickle_files_list ['id10645_xG_tys7Wrxg_00003.pickle', 'id10645_xG_tys7Wrxg_00004.pickle'...]
-            speaker_pickle_files_list = [file_name for file_name in os.listdir(self.hparams.in_dir) if re.search(spk_id, file_name) is not None]
+            speaker_pickle_files_list = [file_name for file_name in os.listdir(self.hparams.in_dir + "/" + self.data_type) if re.search(spk_id, file_name) is not None]
             num_pickle_per_speaker = len(speaker_pickle_files_list)
 
             # list of indices in speaker_pickle_files_list
@@ -106,7 +112,7 @@ class Feeder():
             #print("utt_idx_list for " +str(spk_id)+" is " + str(utt_idx_list))
             for utt_idx in utt_idx_list:
                 utt_pickle = speaker_pickle_files_list[utt_idx]
-                utt_path = self.hparams.in_dir + "/" + utt_pickle
+                utt_path = self.hparams.in_dir + "/" + self.data_type + "/" + utt_pickle
                 with open(utt_path, "rb") as f:
                     load_dict = pickle.load(f)
                     total_logmel_feats = load_dict["LogMel_Features"]
@@ -131,8 +137,6 @@ class Feeder():
 
         wavs_list = [self.hparams.in_wav1, self.hparams.in_wav2]
 
-        save_dict = {};
-
         # file_name for ex) id10343_pCDWKHjQjso_00002
         for wav_path in wavs_list:
             wav_id = os.path.splitext(os.path.basename(wav_path))[0]
@@ -151,7 +155,7 @@ class Feeder():
             print("read audio data from byte string. np array of shape:"+str(wav_arr.shape))
             logmel_feats = logfbank(wav_arr, samplerate=sample_rate, nfilt=40)
             # file_name for ex, 'id10343_pCDWKHjQjso_00002'
-            save_dict[wav_id] = logmel_feats
+            self.save_dict[wav_id] = logmel_feats
 
         num_frames = self.hparams.segment_length * 100
         num_overlap_frames = num_frames * self.hparams.overlap_ratio
@@ -160,7 +164,7 @@ class Feeder():
         match = False
         prev_wav_name = ""
 
-        for wav_name, feats in save_dict.items():
+        for wav_name, feats in self.save_dict.items():
             if wav_name.split("_")[0] == prev_wav_name:
                 print("spk_id" + wav_name.split("_")[0])
                 match = True

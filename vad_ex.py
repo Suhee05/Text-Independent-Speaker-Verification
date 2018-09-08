@@ -157,11 +157,9 @@ def main(args):
     total_wav = b""
     for i, segment in enumerate(segments):
     	total_wav += segment
-    	#print(str(i)+"th segment appended")
     	
     
     path = 'test.wav'
-    #print(' Writing %s' % (path,))
     write_wave(path, total_wav, sample_rate)
 
 
