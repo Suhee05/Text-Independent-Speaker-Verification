@@ -89,6 +89,17 @@ bash data_gen.sh /home/ninas96211/data/test_wav/id10275/CVUXDNZzcmA/00002.wav ~/
 python inference.py --in_wav1 /home/ninas96211/data/test_wav_set/id10309_pwfqGqgezH4_00004.wav --in_wav2 /home/ninas96211/data/test_wav_set/id10296_f_k09R8r_cA_00004.wav --ckpt_file ./ckpt/model.ckpt-35000
 ```
 
+## Results
+
+- Similarity Matrix
+
+![alt text](https://github.com/Suhee05/Text-Independent-Speaker-Verification/blob/master/imgs/sim_mat.png?raw=true)
+
+- Speaker Verification Task
+
+After training 35000 steps using vox1 dataset, this model caught similarity between two waves from the same video clip, however in other cases, it was not successful. Currently this model using all 3 datasets(libri,vox1,vox2) is training and the result will be posted soon.
+
+
 ## Current Issues
 
 - [@jaekukang](https://github.com/jaekookang) cloned this repository and he trained this model successfully. In inference.py, however, he found a bug. I fixed the bug.
