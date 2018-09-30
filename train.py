@@ -1,11 +1,11 @@
 import tensorflow as tf
-from feeder import Feeder
-import argparse
-import utils
-from model import GE2E
 import re
 import os
 import queue
+import argparse
+from model import GE2E
+from feeder import Feeder
+
 
 def main():
 
@@ -58,19 +58,19 @@ def main():
     # Set up Queue
     global_queue = queue.Queue()
     # Set up Feeder
-    libri_feeder = Feeder(args, "libri")
+    libri_feeder = Feeder(args, "train", "libri")
     libri_feeder.set_up_feeder(global_queue)
 
-    vox1_feeder = Feeder(args, "vox1")
+    vox1_feeder = Feeder(args, "train", "vox1")
     vox1_feeder.set_up_feeder(global_queue)
 
-    vox2_feeder = Feeder(args,"vox2")
+    vox2_feeder = Feeder(args, "train", "vox2")
     vox2_feeder.set_up_feeder(global_queue)
 
     # Set up Model
 
     model = GE2E(args)
-    graph = model.set_up_model()
+    graph = model.set_up_model("train")
     
     # Training
     with graph.as_default():

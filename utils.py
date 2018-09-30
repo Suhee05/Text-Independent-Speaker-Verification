@@ -38,27 +38,3 @@ def tf_scaled_cosine_similarity(a, b):
     
     return scaled_cos_similarity
 
-"""
-def tf_scaled_cosine_similarity(a, b):
-    # a is embedding matrix of utterances, by default [640, 256(proj_nodes)]
-    # b is matrix of centroids, by default [64, 256(proj_nodes)]
-    # returns a similiarity matrix of a and b'
-    normalize_a = tf.nn.l2_normalize(a, -1)
-    normalize_b = tf.transpose(tf.nn.l2_normalize(b, -1))
-
-    # cosine similarity
-    cos_similarity = tf.matmul(normalize_a, normalize_b)
-
-
-    # w is always positive
-    with tf.variable_scope("cos_params", reuse=tf.AUTO_REUSE):
-        w = tf.Variable(10, name="scale_weight")
-        bias = tf.Variable(-5, name="scale_bias")
-        tf.assign(w, tf.clip_by_value(w, 0, np.infty))
-    
-    # scaled cosine similarity
-    scaled_cos_similarity = tf.add(tf.multiply(w, cos_similarity), bias)
-    
-    return scaled_cos_similarity
-"""
-

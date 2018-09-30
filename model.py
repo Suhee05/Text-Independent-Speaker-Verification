@@ -17,10 +17,10 @@ class GE2E():
         self.hparams = hparams
         self.batch_size = self.hparams.num_utt_per_batch * self.hparams.num_spk_per_batch
 
-    def set_up_model(self):
+    def set_up_model(self, mode):
         ge2e_graph = tf.Graph()
         with ge2e_graph.as_default():
-            if self.hparams.mode == "train":
+            if mode == "train":
                 # Input Batch of [N*M(batch_size), total_frames, 40(spectrogram_channel)]
                 # Target Batch of [N*M(batch_size), Speaker ID]
                 self.input_batch = tf.placeholder(dtype=tf.float32, shape=[None, None, self.hparams.spectrogram_scale], name="input_batch")
@@ -29,14 +29,10 @@ class GE2E():
                 self._cal_loss()
                 self._optimize()
 
-            elif self.hparams.mode == "infer":
+            elif mode == "infer" or "test":
                 self.input_batch = tf.placeholder(dtype=tf.float32, shape=[None, None, self.hparams.spectrogram_scale], name="input_batch")
                 self._create_embedding()
 
-            # test 부분 추가
-
-            elif self.hparams.mode == "test":
-                pass
 
             else:
                 raise ValueError("mode not supported")
