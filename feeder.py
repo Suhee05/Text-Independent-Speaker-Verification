@@ -28,37 +28,13 @@ vox1_dev_wav - id #### - 0DOmwbPlPvY - 00001.wav
 """
 
 class Feeder():
-    def __init__(self, hparams, mode, data_type=None):
+    def __init__(self, hparams, mode):
         # Set hparams
         self.hparams = hparams
         self.mode = mode
-        if self.mode == "train":
-            assert data_type != None
-            self.data_type = data_type
-    def set_up_feeder(self, queue=None):
+        self.num_pk = len(glob.glob(self.hparams.in_dir + "/*.pickle"))
 
-        if self.mode == "train":
-            #pickles = ["id11251_gFfcgOVmiO0_00004.pickle", "id11251_gFfcgOVmiO0_00005.pickle"...]
-            self.pickles = os.listdir(self.hparams.in_dir + "/" + self.data_type)
-            self.spk_names = list(set([pickle.split("_")[0] for pickle in self.pickles]))
-            # Create Queue
-            #self.queue = queue.Queue()
-            self.queue = queue
-            # Start new thread
-            start_new_thread(self.generate_data, ())
-
-        elif self.mode == "infer":
-            pass
-
-        elif self.mode == "test":
-            test_wavs = glob.glob(self.hparams.test_dir + "/*.wav")
-            self.wav_pairs = list(itertools.combinations(test_wavs, 2))
-            self.queue = queue
-            start_new_thread(self.generate_data, ())
-
-        else:
-            raise ValueError("mode not supported")
-
+    #utils로 뺄것
     def vad_process(self, path):
         wav_id = os.path.splitext(os.path.basename(path))[0]
         audio, sample_rate = vad_ex.read_wave(path)
@@ -77,39 +53,7 @@ class Feeder():
         logmel_feats = logfbank(wav_arr, samplerate=sample_rate, nfilt=40)
         return logmel_feats
 
-    def generate_spk(self, list, num_elements):
-        batch = list[:num_elements]
-        del list[:num_elements]
-        list += batch
-        return batch
-
-    
-    def is_invalid_spk(self, spk_id):
-        # check if each speaker has more than at least self.hparams.num_utt_per_batch utterances
-        spk_utt = [1 for pickle in self.pickles if re.search(spk_id, pickle)]
-        num_utt = sum(spk_utt)
-        if num_utt < self.hparams.num_utt_per_batch:
-            return True
-        else:
-            return False
-
-    def generate_data(self):
-        while True:
-            if self.mode == "train":
-                if self.queue.qsize() > 10:
-                    time.sleep(0.1)
-                    continue;
-                in_batch, target_batch = self.create_train_batch()
-                self.queue.put([in_batch, target_batch])
-            elif self.mode == "test":
-                if self.queue.qsize() > 100:
-                    time.sleep(0.1)
-                    continue;
-                wav1_data, wav2_data, match = self.create_test_batch()
-                self.queue.put([wav1_data, wav2_data, match])
-
-        self.queue.task_done()
-
+   
     def extract_features(self, path):
         logmel_feats = self.vad_process(path)
         num_frames = self.hparams.segment_length * 100
@@ -130,27 +74,30 @@ class Feeder():
     
     def create_train_batch(self):
         num_frames = int(self.hparams.segment_length * 100)
-        spk_batch = self.generate_spk(self.spk_names, self.hparams.num_spk_per_batch)
+        spk_list = list(set([os.path.basename(pk).split("_")[0] for pk in glob.iglob(self.hparams.in_dir + "/*.pickle")]))
+        spk_batch = random.choices(range(len(spk_list)), k=self.hparams.num_spk_per_batch)
         target_batch = [spk for spk in range(self.hparams.num_spk_per_batch) for i in range(self.hparams.num_utt_per_batch)]
         #print("spk_batch: " + str(spk_batch))
         #print("target_batch: " + str(target_batch))
         in_batch = []
 
         for spk_id in spk_batch:
-            if self.is_invalid_spk(spk_id):
-                print("speaker id: " + spk_id + " has less than " + str(self.hparams.num_utt_per_batch) + " utt files")
-                continue
-            # speaker_pickle_files_list ['id10645_xG_tys7Wrxg_00003.pickle', 'id10645_xG_tys7Wrxg_00004.pickle'...]
-            speaker_pickle_files_list = [file_name for file_name in os.listdir(self.hparams.in_dir + "/" + self.data_type) if re.search(spk_id, file_name) is not None]
+
+            # speaker_pickle_files_list ['./id10645_xG_tys7Wrxg_00003.pickle', './id10645_xG_tys7Wrxg_00004.pickle'...]
+            speaker_pickle_files_list = [pickle for pickle in glob.iglob(self.hparams.in_dir + "/*.pickle") if re.search(spk_list[spk_id], pickle)]
             num_pickle_per_speaker = len(speaker_pickle_files_list)
+            if num_pickle_per_speaker < 10:
+                print("less than 10 utts")
+                pass 
+
+                # 예외처리
 
             # list of indices in speaker_pickle_files_list
             utt_idx_list = random.choices(range(num_pickle_per_speaker), k=self.hparams.num_utt_per_batch)
             #print("utt_idx_list for " +str(spk_id)+" is " + str(utt_idx_list))
             for utt_idx in utt_idx_list:
                 utt_pickle = speaker_pickle_files_list[utt_idx]
-                utt_path = self.hparams.in_dir + "/" + self.data_type + "/" + utt_pickle
-                with open(utt_path, "rb") as f:
+                with open(utt_pickle, "rb") as f:
                     load_dict = pickle.load(f)
                     total_logmel_feats = load_dict["LogMel_Features"]
 
@@ -165,6 +112,8 @@ class Feeder():
 
         in_batch = np.asarray(in_batch)
         target_batch = np.asarray(target_batch)
+
+        
 
         return in_batch, target_batch
 

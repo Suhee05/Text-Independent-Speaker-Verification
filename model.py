@@ -43,15 +43,7 @@ class GE2E():
         
         with tf.variable_scope("lstm_embedding"):
             # Create Embedding Using LSTM
-            stacked_lstm = tf.nn.rnn_cell.MultiRNNCell([tf.nn.rnn_cell.LSTMCell(self.hparams.num_lstm_cells, num_proj=self.hparams.dim_lstm_projection) for _ in range(self.hparams.num_lstm_stacks)])
-            # 
-            # Create Initial State
-            #init_state = stacked_lstm.zero_state(self.batch_size, dtype=tf.float32)
-            # Decode Using dynamic_rnn
-            # outputs is a tensor of [batch_size, total_frames, output_size]
-            # output_size is self.hparams.dim_lstm_projection if num_proj in LSTMCell is set
-            # state is a tensor of [batch_size, state_size of the cell]
-        
+            stacked_lstm = tf.nn.rnn_cell.MultiRNNCell([tf.nn.rnn_cell.LSTMCell(self.hparams.num_lstm_cells, num_proj=self.hparams.dim_lstm_projection) for _ in range(self.hparams.num_lstm_stacks)])        
             outputs, state = tf.nn.dynamic_rnn(cell=stacked_lstm, inputs=self.input_batch, dtype=tf.float32)
         
             # L2 Normalize the output of the last layer at the final frame
@@ -148,6 +140,3 @@ class GE2E():
     
             self.optimize = optimizer.apply_gradients(clipped_grad_and_vars, global_step=self.global_step)
             
-
-
-

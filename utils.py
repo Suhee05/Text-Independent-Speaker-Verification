@@ -16,14 +16,20 @@ def tf_cosine_similarity(a, b):
     return cos_similarity
 
 def tf_scaled_cosine_similarity(a, b):
-    # a is embedding vecter of an utterance, by default [256(proj_nodes)]
+    # a is embedding vecter or matrix by default [256(proj_nodes)] or [640, 256]
     # b is centroid, by default [64(num_spk_per_batch), 256(proj_nodes)]
     # returns similarity vector of utt for every centroid
-    normalize_a = tf.reshape(tf.nn.l2_normalize(a, axis=-1), [1, -1])
+    normalize_a = tf.nn.l2_normalize(a, axis=-1)
+    if tf.rank(a) == 1:
+        normalize_a = tf.reshape(normalize_a , [1, -1])
     normalize_b = tf.transpose(tf.nn.l2_normalize(b, axis=-1))
 
-    # cosine similarity vector [1,64]
-    cos_similarity = tf.reshape(tf.matmul(normalize_a, normalize_b),[-1]) # [1,64] to [64]
+    # cosine similarity matrix [640,64]
+    cos_similarity = tf.matmul(normalize_a, normalize_b)
+    #  cosine similarity vector [1,64]
+    if tf.rank(a) == 1:
+        cos_similarity = tf.reshape(cos_similarity,[-1]) # [1,64] to [64]
+
 
     # w is always positive
     with tf.variable_scope("cos_params"):

@@ -60,10 +60,11 @@ wav_root - speaker_id - speaker_id-001.wav
 + Run preprocess.py
 
 
+
 ```python
-python preprocess.py --in_dir /home/ninas96211/data/libri --pk_dir /home/ninas96211/data/libri_pickle --data_type libri
-python preprocess.py --in_dir /home/ninas96211/data/vox1 --pk_dir /home/ninas96211/data/vox1_pickle --data_type vox1
-python preprocess.py --in_dir /home/ninas96211/data/vox2 --pk_dir /home/ninas96211/data/vox2_pickle--data_type vox2
+python preprocess.py --in_dir /home/ninas96211/data/libri --pk_dir /home/ninas96211/data/pickle --data_type libri
+python preprocess.py --in_dir /home/ninas96211/data/vox1 --pk_dir /home/ninas96211/data/pickle --data_type vox1
+python preprocess.py --in_dir /home/ninas96211/data/vox2 --pk_dir /home/ninas96211/data/pickle--data_type vox2
 ```
 
 ### 2. Train 

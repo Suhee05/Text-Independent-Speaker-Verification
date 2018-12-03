@@ -1,7 +1,6 @@
 import tensorflow as tf
 import re
 import os
-import queue
 import argparse
 from model import GE2E
 from feeder import Feeder
@@ -55,17 +54,8 @@ def main():
     # Collect hparams
     args = parser.parse_args()
 
-    # Set up Queue
-    global_queue = queue.Queue()
     # Set up Feeder
-    libri_feeder = Feeder(args, "train", "libri")
-    libri_feeder.set_up_feeder(global_queue)
-
-    vox1_feeder = Feeder(args, "train", "vox1")
-    vox1_feeder.set_up_feeder(global_queue)
-
-    vox2_feeder = Feeder(args, "train", "vox2")
-    vox2_feeder.set_up_feeder(global_queue)
+    feeder = Feeder(args, "train")
 
     # Set up Model
 
@@ -95,9 +85,9 @@ def main():
 
             print("current step: " + str(num_step) + "th step")
         
-            batch = global_queue.get()
+            in_batch, target_batch= feeder.create_train_batch()
             
-            summary, training_loss, _ = sess.run([model.sim_mat_summary, model.total_loss, model.optimize], feed_dict={model.input_batch: batch[0], model.target_batch : batch[1]})
+            summary, training_loss, _ = sess.run([model.sim_mat_summary, model.total_loss, model.optimize], feed_dict={model.input_batch: in_batch, model.target_batch : target_batch})
             train_writer.add_summary(summary, num_step)
             print("batch loss:" + str(training_loss))
 
@@ -109,5 +99,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
