@@ -58,25 +58,37 @@ class GE2E():
             # norm_out is a tensor of [batch_size, output_size], by default, [640, 256(proj_nodes)]
             self.norm_out = tf.nn.l2_normalize(outputs[:, -1, :], axis=-1)
 
+    def _cal_centroid(self, centroid_idx, utt_idx = None):
 
-
-    def _cal_centroid_matrix(self, utt_idx):
-        def cal_centroid(centroid_idx):
-            # utt_idx counts from 0 to 639
-            # spk_id counts from 0 to 63
+        all_utts_for_spk = self.norm_out[centroid_idx * self.hparams.num_utt_per_batch : (centroid_idx+1) * self.hparams.num_utt_per_batch, :]  
+        
+        if self.hparams.loss_type == "optional_softmax":
             spk_id = (utt_idx // self.hparams.num_utt_per_batch)
             utt_idx_in_group = utt_idx % self.hparams.num_utt_per_batch
-
-            all_utts_for_spk = self.norm_out[centroid_idx * self.hparams.num_utt_per_batch : (centroid_idx+1) * self.hparams.num_utt_per_batch, :]  
             if centroid_idx == spk_id:
                 mask = np.array([False if utt == utt_idx_in_group else True for utt in range(self.hparams.num_utt_per_batch)])
                 centroid = tf.reduce_mean(tf.boolean_mask(all_utts_for_spk, mask), 0)
-            else:
-                centroid = tf.reduce_mean(all_utts_for_spk, 0)
-
-            return centroid
         
-        centroid_mat = tf.convert_to_tensor(tf.map_fn(cal_centroid, tf.range(self.hparams.num_spk_per_batch), dtype=tf.float32))
+        centroid = tf.reduce_mean(all_utts_for_spk, 0)
+
+        return centroid
+
+
+    def _cal_centroid_matrix(self, utt_idx = None):
+        if self.hparams.loss_type == "basic_softmax":
+            # From the utterances of the first speaker batch to those of the last speaker, calculate each centroid
+            centroid_mat = []
+            for i in range(self.hparams.num_spk_per_batch):
+                # centroid is a vector, reduced mean of embeddings per speaker
+                centroid = tf.reduce_mean(self.norm_out[i * self.hparams.num_utt_per_batch : (i+1) * self.hparams.num_utt_per_batch, :], 0)
+                centroid_mat.append(centroid)
+            # self.centroids == [c1, c2, c3 ... cn], its shape [64, 256(proj_nodes)]
+            centroid_mat = tf.convert_to_tensor(centroid_mat)
+
+        elif self.hparams.loss_type == "optional_softmax":
+            centroid_mat = tf.convert_to_tensor(tf.map_fn(self._cal_centroid, tf.range(self.hparams.num_spk_per_batch), dtype=tf.float32))
+        else:
+            print("Loss type not supported") 
         return centroid_mat
             
 
@@ -90,28 +102,29 @@ class GE2E():
         sim_per_utt = utils.tf_scaled_cosine_similarity(utt_dvector, centroids)
 
         return sim_per_utt
-            
+
+    def _create_sim_mat(self):
+        centroids = self._cal_centroid_matrix()
+        sim_mat = tf.sigmoid(utils.tf_scaled_cosine_similarity(self.norm_out, centroids))
+        return sim_mat
             
 
     def _cal_loss(self):
         with tf.variable_scope("loss"):
             # utt_idx // num_utt_per_batch(10) => true idx of sim_mat columns
-            # 텐플은 matrix 연산에 최적화되어있어서, 텐플에서 제공하는matrix 연산(c로 연산됨)을 파이썬 for loop으로 하면 대박느려짐
-            # sim_mat 구할 때도 그런 문제가 있어서 코드를 전면 수정했고
-            # cal_loss 도 수정해야하는데 약간 까다로움 
-            
-            # train 에서 옵션을 받아서 loss를 2가지로 받을 수 있도록 (현재는 contrast loss만 구현)
 
-            if self.hparams.loss_type == "softmax":
+            if self.hparams.loss_type == "basic_softmax":
+                self.sim_mat = self._create_sim_mat()
+                self.sim_mat_summary = tf.summary.image("sim_mat", tf.reshape(self.sim_mat,[1, self.batch_size, self.hparams.num_spk_per_batch, 1]))
+                self.total_loss = tf.divide(tf.reduce_sum(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.sim_mat, labels=self.target_batch)), self.batch_size)
+                
+
+            elif self.hparams.loss_type == "optional_softmax":
                 # sim_mat has shape of [batch_size, num_spk]
                 self.sim_mat = tf.convert_to_tensor(tf.map_fn(self._create_sim_per_utt, tf.range(self.batch_size),dtype=tf.float32))
                 self.sim_mat_summary = tf.summary.image("sim_mat", tf.reshape(self.sim_mat,[1, self.batch_size, self.hparams.num_spk_per_batch, 1]))
                 self.total_loss = tf.divide(tf.reduce_sum(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.sim_mat, labels=self.target_batch)), self.batch_size)
                 
-
-            elif self.hparams.loss_type == "contrast":
-                pass
-
             else:
                 print("Loss type not supported")         
            

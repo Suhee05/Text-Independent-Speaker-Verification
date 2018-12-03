@@ -15,6 +15,7 @@ numba==0.39.0
 numpy==1.14.5
 packaging==17.1
 protobuf==3.6.0
+pydub==0.23.0
 pyparsing==2.2.0
 python-speech-features==0.6
 resampy==0.2.1

@@ -32,7 +32,7 @@ def main():
     parser.add_argument("--init_weight_range", type=float, default=0.1, help="initial weight ranges from -0.1 to 0.1")
 
     # Optimization
-    parser.add_argument("--loss_type", default="softmax", choices=["softmax", "contrast"], help="loss type for optimization")
+    parser.add_argument("--loss_type", default="basic_softmax", choices=["basic_softmax", "optional_softmax"], help="loss type for optimization")
     parser.add_argument("--optimizer", type=str, default="sgd", help="type of optimizer")
     parser.add_argument("--learning_rate", type=float, default=0.01, help="learning rate")
     parser.add_argument("--l2_norm_clip", type=float, default=3.0, help="L2-norm of gradient is clipped at")

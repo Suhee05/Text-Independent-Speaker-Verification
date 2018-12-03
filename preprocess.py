@@ -7,8 +7,7 @@ import random
 import numpy as np
 import argparse
 import time
-from _thread import start_new_thread
-import queue
+import threading
 from python_speech_features import logfbank
 import utils
 import vad_ex
@@ -28,22 +27,27 @@ vox1_dev_wav - id #### - 0DOmwbPlPvY - 00001.wav
 
 """
 
-class Preprocess():
+class Preprocess(threading.Thread):
     def __init__(self, hparams, data_type):
+        threading.Thread.__init__(self)
         # Set hparams
         self.hparams = hparams
         self.data_type = data_type
+        os.mkdir(self.hparams.pk_dir + "/" + self.data_type)
 
-        # Start Process
-        start_new_thread(self.preprocess_data(), ())
+    def run(self):
+        self.preprocess_data()
 
     def preprocess_data(self):
         if self.data_type == "libri":
-            path_list = glob.iglob(self.hparams.in_dir.rstrip("/")+"/*/*.wav")
+            root_path = self.hparams.libri_dir
+            path_list = glob.iglob(root_path+"/*/*.wav")
         elif self.data_type == "vox1":
-            path_list = glob.iglob(self.hparams.in_dir.rstrip("/")+"/*/*/*.wav")
+            root_path =self.hparams.vox1_dir
+            path_list = glob.iglob(root_path+"/*/*/*.wav")
         elif self.data_type == "vox2":
-            path_list = glob.iglob(self.hparams.in_dir.rstrip("/")+"/*/*/*.m4a")
+            root_path =self.hparams.vox2_dir
+            path_list = glob.iglob(root_path+"/*/*/*.m4a")
         else:
             raise ValueError("data type not supported")
         for path in path_list:
@@ -73,7 +77,6 @@ class Preprocess():
         return wav_arr, sample_rate
 
     def create_pickle(self, path, wav_arr, sample_rate):
-        os.mkdir(self.hparams.pk_dir + "/" + self.data_type)
         if round((wav_arr.shape[0] / sample_rate), 1) > self.hparams.segment_length:
             save_dict = {};
             logmel_feats = logfbank(wav_arr, samplerate=sample_rate, nfilt=self.hparams.spectrogram_scale)
@@ -81,16 +84,18 @@ class Preprocess():
             save_dict["LogMel_Features"] = logmel_feats;
 
             if self.data_type == ("vox1" or "vox2"):
-            	data_id = "_".join(path.split("/")[-3:])
-            	save_dict["SpkId"] = path.split("/")[-3]
-            	save_dict["ClipId"] = path.split("/")[-2]
-            	save_dict["WavId"] = path.split("/")[-1]
-            	if self.data_type == "vox1":
+                data_id = "_".join(path.split("/")[-3:])
+                save_dict["SpkId"] = path.split("/")[-3]
+                save_dict["ClipId"] = path.split("/")[-2]
+                save_dict["WavId"] = path.split("/")[-1]
+                
+                if self.data_type == "vox2":
+                    pickle_f_name = data_id.replace("m4a", "pickle")
+                else:
             	    pickle_f_name = data_id.replace("wav", "pickle")
-            	elif self.data_type == "vox2":
-            	    pickle_f_name = data_id.replace("m4a", "pickle")
-
-            elif self.data_type == "libri":
+                    
+            else:
+                
                 data_id = "_".join(path.split("/")[-2:])
                 save_dict["SpkId"] = path.split("/")[-2]
                 save_dict["WavId"] = path.split("/")[-1]
@@ -108,18 +113,16 @@ def main():
 
     parser = argparse.ArgumentParser()
 
-    # in_dir = ~/wav
-    parser.add_argument("--in_dir", type=str, required=True, help="input audio data dir")
+    parser.add_argument("--libri_dir", type=str, required=True, help="input libri data dir")
+    parser.add_argument("--vox1_dir", type=str, required=True, help="input vox1 data dir")
+    parser.add_argument("--vox2_dir", type=str, required=True, help="input vox2 data dir")
     parser.add_argument("--pk_dir", type=str, required=True, help="output pickle dir")
-    #parser.add_argument("--data_type", required=True, choices=["libri", "vox1", "vox2"])
-
+    
     # Data Process
     parser.add_argument("--segment_length", type=float, default=1.6, help="segment length in seconds")
     parser.add_argument("--spectrogram_scale", type=int, default=40,
                                            help="scale of the input spectrogram")
     args = parser.parse_args()
-
-    #pk_dir = os.path.dirname(args.in_dir.rstrip("/")) + "/wavs_pickle"
 
     # try to make pickle directory.
     try:
@@ -131,17 +134,22 @@ def main():
     	print("Unexpected Error:", sys.exc_info()[0])
 
 
-    libri_preprocess = Preprocess(args, "libri")
-    #libri_preprocess.preprocess_data()
+    t_list = []
+        
+    for data in ["libri", "vox1", "vox2"]:
+        t = Preprocess(args, data)
+        #t.setDaemon(True)
+        t_list.append(t)
 
-    vox1_preprocess = Preprocess(args, "vox1")
-    #vox1_preprocess.preprocess_data()
+    for n, t in enumerate(t_list):
+        print( str(n) +"start")
+        t.start()
 
-    vox2_preprocess = Preprocess(args, "vox2")
-    #vox2_preprocess.preprocess_data()
+    for t in t_list:
+        t.join()
+
     
-
-
-
+    
+                            
 if __name__ == "__main__":
     main()
